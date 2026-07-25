@@ -2,6 +2,9 @@
 # Barney Self-Updater Script
 INSTALL_DIR="/opt/barney"
 
+# Add safe.directory exception for /opt/barney to prevent Git ownership errors
+git config --global --add safe.directory /opt/barney 2>/dev/null
+
 echo "[INFO] Updating Barney from GitHub..."
 if [ ! -d "${INSTALL_DIR}/.git" ]; then
     echo "[INFO] Initializing git repository at ${INSTALL_DIR}..."
@@ -13,8 +16,8 @@ if [ ! -d "${INSTALL_DIR}/.git" ]; then
     fi
 else
     cd "${INSTALL_DIR}" || exit 1
-    git fetch origin main &>/dev/null
-    git reset --hard origin/main &>/dev/null
+    git -c safe.directory=/opt/barney fetch origin main &>/dev/null
+    git -c safe.directory=/opt/barney reset --hard origin/main &>/dev/null
 fi
 
 echo "[INFO] Updating Barney scripts and permissions..."
