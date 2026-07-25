@@ -238,6 +238,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         </div>
         <div style="display: flex; gap: 0.75rem; align-items: center;">
             <div id="update-badge"></div>
+            <button class="btn-purple" style="padding: 0.4rem 0.85rem;" onclick="viewOneliners()">⚡ Network One-Liners</button>
             <button class="btn-secondary" style="padding: 0.4rem 0.85rem;" onclick="viewReadme()">📖 View Cheatsheet</button>
             <button class="btn-primary" style="background-color: #059669; padding: 0.4rem 0.85rem;" onclick="syncFromGithub()">☁️ Sync & Update GitHub</button>
             <div class="status-badge">
@@ -371,11 +372,35 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         </div>
     </div>
 
+    <div id="oneliners-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:9999; justify-content:center; align-items:center; backdrop-filter:blur(4px);">
+        <div style="background:#111827; border:1px solid #1f2937; border-radius:12px; padding:1.5rem; width:90%; max-width:850px; max-height:85vh; display:flex; flex-direction:column; box-shadow:0 20px 25px -5px rgba(0,0,0,0.5);">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem; border-bottom:1px solid #1f2937; padding-bottom:0.75rem;">
+                <h3 style="font-size:1.1rem; color:#f9fafb; display:flex; align-items:center; gap:0.5rem;">⚡ Enterprise Network Diagnostics One-Liner Cheatsheet</h3>
+                <button onclick="closeOneliners()" class="btn-secondary" style="flex:none; padding:0.35rem 0.8rem;">✕ Close</button>
+            </div>
+            <pre id="oneliners-content" style="flex:1; overflow-y:auto; font-family:monospace; background:#05070e; color:#8b5cf6; padding:1rem; border-radius:6px; font-size:0.82rem; white-space:pre-wrap; max-height:none; border:1px solid #1f2937;">Loading one-liners...</pre>
+        </div>
+    </div>
+
     <footer>
         Barney Field Appliance • Build <span id="build-hash">dev</span> • Auto-refreshes telemetry every 5 seconds
     </footer>
 
     <script>
+        async function viewOneliners() {
+            document.getElementById('oneliners-modal').style.display = 'flex';
+            try {
+                const res = await fetch('/api/oneliners');
+                const text = await res.text();
+                document.getElementById('oneliners-content').innerText = text;
+            } catch (err) {
+                document.getElementById('oneliners-content').innerText = 'Error loading One-Liners: ' + err;
+            }
+        }
+
+        function closeOneliners() {
+            document.getElementById('oneliners-modal').style.display = 'none';
+        }
         async function viewReadme() {
             document.getElementById('readme-modal').style.display = 'flex';
             try {
@@ -732,6 +757,19 @@ class BarneyDashboardHandler(http.server.BaseHTTPRequestHandler):
             self.send_header('Content-Type', 'text/html')
             self.end_headers()
             self.wfile.write(HTML_TEMPLATE.encode('utf-8'))
+        elif self.path == '/oneliners' or self.path == '/api/oneliners':
+            self.send_response(200)
+            self.send_header('Content-Type', 'text/plain; charset=utf-8')
+            self.end_headers()
+            content = "One-liners unavailable"
+            for p in ["/opt/barney/NETWORK_TOOLKIT_ONELINERS.txt", "NETWORK_TOOLKIT_ONELINERS.txt"]:
+                if os.path.exists(p):
+                    try:
+                        with open(p, "r") as f:
+                            content = f.read()
+                        break
+                    except Exception: pass
+            self.wfile.write(content.encode('utf-8'))
         elif self.path == '/readme' or self.path == '/api/readme':
             self.send_response(200)
             self.send_header('Content-Type', 'text/plain; charset=utf-8')
