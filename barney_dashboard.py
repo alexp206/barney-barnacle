@@ -231,7 +231,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         <div class="brand">
             <div class="brand-icon">⚡</div>
             <div>
-                <h1>BARNEY FIELD DIAGNOSTIC APPLIANCE</h1>
+                <h1>BARNEY FIELD DIAGNOSTIC APPLIANCE v1.1 🚀</h1>
                 <div class="subtitle">Live System Hardware, Network & Services Dashboard</div>
             </div>
         </div>
