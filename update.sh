@@ -20,10 +20,15 @@ else
     git -c safe.directory=/opt/barney reset --hard origin/main &>/dev/null
 fi
 
+echo "[INFO] Installing/Updating required diagnostic tools..."
+if [ -f "${INSTALL_DIR}/install_tools.sh" ]; then
+    bash "${INSTALL_DIR}/install_tools.sh"
+fi
+
 echo "[INFO] Updating Barney scripts and permissions..."
 cp -f "${INSTALL_DIR}/barney-wifi.sh" /usr/local/bin/barney-wifi 2>/dev/null
 chmod +x /usr/local/bin/barney-wifi 2>/dev/null
-chmod +x "${INSTALL_DIR}"/*.py 2>/dev/null
+chmod +x "${INSTALL_DIR}"/*.py "${INSTALL_DIR}"/*.sh 2>/dev/null
 
 echo "[INFO] Scheduling service restart..."
 (sleep 1 && systemctl reset-failed barney-dashboard.service barney-led-status.service && systemctl restart barney-dashboard.service barney-led-status.service) &
