@@ -1,15 +1,11 @@
 #!/bin/bash
 # Barney Self-Updater Script
-# Pulls latest code from GitHub and restarts Barney services
-
-REPO_URL="https://github.com/alexp206/barney-barnacle.git"
 INSTALL_DIR="/opt/barney"
 
-echo "[INFO] Checking for Barney updates from ${REPO_URL}..."
-
+echo "[INFO] Updating Barney from GitHub..."
 if [ ! -d "${INSTALL_DIR}/.git" ]; then
     echo "[INFO] Initializing git repository at ${INSTALL_DIR}..."
-    git clone --depth 1 "${REPO_URL}" "${INSTALL_DIR}_tmp"
+    git clone --depth 1 https://github.com/alexp206/barney-barnacle.git "${INSTALL_DIR}_tmp"
     if [ -d "${INSTALL_DIR}_tmp" ]; then
         cp -r "${INSTALL_DIR}_tmp"/* "${INSTALL_DIR}/"
         cp -r "${INSTALL_DIR}_tmp"/.git "${INSTALL_DIR}/"
@@ -17,8 +13,8 @@ if [ ! -d "${INSTALL_DIR}/.git" ]; then
     fi
 else
     cd "${INSTALL_DIR}" || exit 1
-    git fetch origin main
-    git reset --hard origin/main
+    git fetch origin main &>/dev/null
+    git reset --hard origin/main &>/dev/null
 fi
 
 echo "[INFO] Updating Barney scripts and permissions..."
@@ -26,8 +22,7 @@ cp -f "${INSTALL_DIR}/barney-wifi.sh" /usr/local/bin/barney-wifi 2>/dev/null
 chmod +x /usr/local/bin/barney-wifi 2>/dev/null
 chmod +x "${INSTALL_DIR}"/*.py 2>/dev/null
 
-echo "[INFO] Restarting Barney services..."
-systemctl reset-failed barney-dashboard.service barney-led-status.service 2>/dev/null
-systemctl restart barney-dashboard.service barney-led-status.service
+echo "[INFO] Scheduling service restart..."
+(sleep 1 && systemctl reset-failed barney-dashboard.service barney-led-status.service && systemctl restart barney-dashboard.service barney-led-status.service) &
 
-echo "[SUCCESS] Barney successfully updated to latest version!"
+echo "[SUCCESS] Update process initiated!"

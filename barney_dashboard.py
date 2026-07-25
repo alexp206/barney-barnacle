@@ -236,6 +236,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             </div>
         </div>
         <div style="display: flex; gap: 0.75rem; align-items: center;">
+            <div id="update-badge"></div>
             <button class="btn-primary" style="background-color: #059669; padding: 0.4rem 0.85rem;" onclick="syncFromGithub()">☁️ Sync & Update GitHub</button>
             <div class="status-badge">
                 <div class="dot"></div>
@@ -378,6 +379,14 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                 document.getElementById('sys-overlay').innerHTML = data.overlay_active
                     ? '<span class="tag tag-purple">Protected (Read-Only)</span>'
                     : '<span class="tag tag-green">Persistent (Read-Write)</span>';
+
+                if (data.update_status === 'update_available') {
+                    document.getElementById('update-badge').innerHTML = '<span class="tag tag-purple">Update Available!</span>';
+                } else if (data.update_status === 'up_to_date') {
+                    document.getElementById('update-badge').innerHTML = '<span class="tag tag-green">Up to Date (' + (data.update_commit || '') + ')</span>';
+                } else {
+                    document.getElementById('update-badge').innerText = '';
+                }
 
                 document.getElementById('ip-eth0').innerText = data.ip_eth0 || 'Disconnected';
                 document.getElementById('ip-wlan0').innerText = data.ip_wlan0 || 'Disconnected';
@@ -527,6 +536,18 @@ def get_sys_metrics():
 
     return uptime, temp_c, load_avg, ram_pct, overlay_active
 
+def get_update_status():
+    status = "up_to_date"
+    commit = ""
+    try:
+        if os.path.exists("/tmp/barney_update_status.json"):
+            with open("/tmp/barney_update_status.json", "r") as f:
+                data = json.load(f)
+                status = data.get("status", "up_to_date")
+                commit = data.get("local_commit", "")
+    except Exception: pass
+    return status, commit
+
 def get_ip(interface_type):
     try:
         out = subprocess.check_output(["ip", "-4", "-j", "addr", "show"], stderr=subprocess.DEVNULL).decode()
@@ -664,6 +685,7 @@ class BarneyDashboardHandler(http.server.BaseHTTPRequestHandler):
             self.wfile.write(HTML_TEMPLATE.encode('utf-8'))
         elif self.path == '/api/status':
             uptime, temp_c, load_avg, ram_pct, overlay_active = get_sys_metrics()
+            up_status, up_commit = get_update_status()
             eth0_ip = get_ip("eth")
             wlan0_ip = get_ip("wlan")
             netbird_ip = get_ip("netbird")
@@ -681,6 +703,8 @@ class BarneyDashboardHandler(http.server.BaseHTTPRequestHandler):
                 "load_avg": load_avg,
                 "ram_pct": ram_pct,
                 "overlay_active": overlay_active,
+                "update_status": up_status,
+                "update_commit": up_commit,
                 "ip_eth0": eth0_ip,
                 "ip_wlan0": wlan0_ip,
                 "ip_netbird": netbird_ip,
@@ -758,8 +782,8 @@ class BarneyDashboardHandler(http.server.BaseHTTPRequestHandler):
             self.wfile.write(json.dumps(res).encode('utf-8'))
         elif self.path == '/api/git_update':
             try:
-                out = subprocess.check_output(["sudo", "bash", "/opt/barney/update.sh"], stderr=subprocess.STDOUT).decode()
-                res = {"status": "ok", "message": f"GitHub Update Result:\n{out}"}
+                subprocess.Popen(["sudo", "bash", "/opt/barney/update.sh"])
+                res = {"status": "ok", "message": "GitHub update initiated! Barney will restart in 1 second."}
             except Exception as e:
                 res = {"status": "error", "message": f"Error updating from GitHub: {e}"}
 
