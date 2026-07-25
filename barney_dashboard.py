@@ -8,6 +8,7 @@ import re
 import time
 
 PORT = 8888
+LAST_CHECK_TIME = 0
 
 HTML_TEMPLATE = """<!DOCTYPE html>
 <html lang="en">
@@ -371,7 +372,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     </div>
 
     <footer>
-        Barney Field Appliance • Auto-refreshes telemetry every 5 seconds
+        Barney Field Appliance • Build <span id="build-hash">dev</span> • Auto-refreshes telemetry every 5 seconds
     </footer>
 
     <script>
@@ -389,6 +390,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         function closeReadme() {
             document.getElementById('readme-modal').style.display = 'none';
         }
+
         async function fetchStatus() {
             try {
                 const res = await fetch('/api/status');
@@ -405,12 +407,14 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                     ? '<span class="tag tag-purple">Protected (Read-Only)</span>'
                     : '<span class="tag tag-green">Persistent (Read-Write)</span>';
 
+                document.getElementById('build-hash').innerText = data.update_commit || 'dev';
+
                 if (data.update_status === 'update_available') {
-                    document.getElementById('update-badge').innerHTML = '<span class="tag tag-purple">Update Available!</span>';
+                    document.getElementById('update-badge').innerHTML = '<span class="tag tag-purple">Update Available! (New: ' + (data.remote_commit || '') + ')</span>';
                 } else if (data.update_status === 'up_to_date') {
-                    document.getElementById('update-badge').innerHTML = '<span class="tag tag-green">Up to Date (' + (data.update_commit || '') + ')</span>';
+                    document.getElementById('update-badge').innerHTML = '<span class="tag tag-green">Up to Date (' + (data.update_commit || 'dev') + ')</span>';
                 } else {
-                    document.getElementById('update-badge').innerText = '';
+                    document.getElementById('update-badge').innerHTML = '<span class="tag tag-amber">Build ' + (data.update_commit || 'dev') + '</span>';
                 }
 
                 document.getElementById('ip-eth0').innerText = data.ip_eth0 || 'Disconnected';
@@ -561,17 +565,37 @@ def get_sys_metrics():
 
     return uptime, temp_c, load_avg, ram_pct, overlay_active
 
+def trigger_bg_update_check():
+    global LAST_CHECK_TIME
+    now = time.time()
+    if now - LAST_CHECK_TIME > 60:
+        LAST_CHECK_TIME = now
+        try:
+            subprocess.Popen(["sudo", "bash", "/opt/barney/check_update.sh"])
+        except Exception: pass
+
+def get_current_git_commit():
+    try:
+        out = subprocess.check_output(["git", "-c", "safe.directory=/opt/barney", "rev-parse", "--short", "HEAD"], cwd="/opt/barney", stderr=subprocess.DEVNULL).decode().strip()
+        if out:
+            return out
+    except Exception: pass
+    return "dev"
+
 def get_update_status():
+    trigger_bg_update_check()
     status = "up_to_date"
-    commit = ""
+    commit = get_current_git_commit()
+    remote_commit = ""
     try:
         if os.path.exists("/tmp/barney_update_status.json"):
             with open("/tmp/barney_update_status.json", "r") as f:
                 data = json.load(f)
                 status = data.get("status", "up_to_date")
-                commit = data.get("local_commit", "")
+                commit = data.get("local_commit", commit) or commit
+                remote_commit = data.get("remote_commit", "")
     except Exception: pass
-    return status, commit
+    return status, commit, remote_commit
 
 def get_ip(interface_type):
     try:
@@ -723,7 +747,7 @@ class BarneyDashboardHandler(http.server.BaseHTTPRequestHandler):
             self.wfile.write(content.encode('utf-8'))
         elif self.path == '/api/status':
             uptime, temp_c, load_avg, ram_pct, overlay_active = get_sys_metrics()
-            up_status, up_commit = get_update_status()
+            up_status, up_commit, remote_commit = get_update_status()
             eth0_ip = get_ip("eth")
             wlan0_ip = get_ip("wlan")
             netbird_ip = get_ip("netbird")
@@ -743,6 +767,7 @@ class BarneyDashboardHandler(http.server.BaseHTTPRequestHandler):
                 "overlay_active": overlay_active,
                 "update_status": up_status,
                 "update_commit": up_commit,
+                "remote_commit": remote_commit,
                 "ip_eth0": eth0_ip,
                 "ip_wlan0": wlan0_ip,
                 "ip_netbird": netbird_ip,
