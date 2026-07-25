@@ -16,6 +16,7 @@ case "$ACTION" in
         nmcli connection down Hotspot-Bridge 2>/dev/null
         nmcli device disconnect wlan0 2>/dev/null
         if nmcli connection show Hotspot &>/dev/null; then
+            nmcli connection modify Hotspot ipv4.method shared
             nmcli connection up Hotspot
         else
             nmcli device wifi hotspot ifname wlan0 ssid "Barney-Field-Net" password "??open4ME!!123"
@@ -25,11 +26,17 @@ case "$ACTION" in
     hotspot-bridge)
         echo "[INFO] Switching wlan0 to LAN Transparent Bridge mode (no NAT)..."
         nmcli connection down Hotspot 2>/dev/null
-        if ! nmcli connection show Hotspot-Bridge &>/dev/null; then
-            nmcli connection add type wifi mode ap con-name Hotspot-Bridge ifname wlan0 ssid "Barney-LAN-Bridge" -- wifi-security.key-mgmt wpa-psk wifi-security.psk "??open4ME!!123" ipv4.method link-local
+        nmcli connection delete Hotspot-Bridge 2>/dev/null
+        if ! nmcli connection show Hotspot &>/dev/null; then
+            nmcli device wifi hotspot ifname wlan0 ssid "Barney-LAN-Bridge" password "??open4ME!!123"
         fi
-        nmcli connection up Hotspot-Bridge
+        nmcli connection modify Hotspot 802-11-wireless.ssid "Barney-LAN-Bridge" 802-11-wireless-security.key-mgmt wpa-psk 802-11-wireless-security.psk "??open4ME!!123" ipv4.method link-local 2>/dev/null || nmcli connection modify Hotspot 802-11-wireless.ssid "Barney-LAN-Bridge" ipv4.method link-local
+        nmcli connection up Hotspot
         sysctl -w net.ipv4.conf.all.proxy_arp=1 &>/dev/null
+        sysctl -w net.ipv4.conf.wlan0.proxy_arp=1 &>/dev/null
+        sysctl -w net.ipv4.conf."$ETH_IFACE".proxy_arp=1 &>/dev/null
+        pkill parprouted 2>/dev/null
+        pkill dhcp-helper 2>/dev/null
         parprouted wlan0 "$ETH_IFACE" &
         dhcp-helper -i wlan0 -b "$ETH_IFACE" &
         echo "[SUCCESS] wlan0 is now broadcasting Barney-LAN-Bridge connected directly to LAN ($ETH_IFACE)!"
