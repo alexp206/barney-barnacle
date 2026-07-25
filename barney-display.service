@@ -1,0 +1,7 @@
+[Unit]
+Description=Update Barney e-Paper Display
+After=network-online.target lldpd.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /opt/barney/display_status.py

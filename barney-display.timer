@@ -1,0 +1,9 @@
+[Unit]
+Description=Trigger Barney Display Update every 3 minutes
+
+[Timer]
+OnBootSec=30s
+OnUnitActiveSec=3m
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,5 @@
+# Auto-bind FTDI, Prolific, CP210x, or CH340 USB-Serial adapters to /dev/ttyCONSOLE
+SUBSYSTEM=="tty", ATTRS{idVendor}=="0403", SYMLINK+="ttyCONSOLE"
+SUBSYSTEM=="tty", ATTRS{idVendor}=="067b", SYMLINK+="ttyCONSOLE"
+SUBSYSTEM=="tty", ATTRS{idVendor}=="10c4", SYMLINK+="ttyCONSOLE"
+SUBSYSTEM=="tty", ATTRS{idVendor}=="1a86", SYMLINK+="ttyCONSOLE"
